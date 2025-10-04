@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { upload } from '@vercel/blob/client';
 
 interface Upload {
   url: string;
@@ -17,15 +18,19 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem('uploads');
-    if (stored) {
-      setUploads(JSON.parse(stored));
-    }
+    fetchUploads();
   }, []);
 
-  const saveUploads = (newUploads: Upload[]) => {
-    setUploads(newUploads);
-    localStorage.setItem('uploads', JSON.stringify(newUploads));
+  const fetchUploads = async () => {
+    try {
+      const res = await fetch('/api/blobs');
+      if (res.ok) {
+        const data = await res.json();
+        setUploads(data.sort((a: Upload, b: Upload) => b.timestamp - a.timestamp));
+      }
+    } catch (error) {
+      console.error('Failed to fetch uploads:', error);
+    }
   };
 
   const handleFile = async (file: File) => {
@@ -35,23 +40,23 @@ export default function Home() {
     }
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
 
     try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
+      const newBlob = await upload(file.name, file, {
+        access: 'public',
+        handleUploadUrl: '/api/upload',
       });
 
-      if (!res.ok) throw new Error('Upload failed');
+      const newUpload: Upload = {
+        url: newBlob.url,
+        filename: newBlob.pathname,
+        timestamp: Date.now(),
+      };
 
-      const data = await res.json();
-      const newUploads = [data, ...uploads];
-      saveUploads(newUploads);
+      setUploads([newUpload, ...uploads]);
       
-      await navigator.clipboard.writeText(data.url);
-      setCopiedUrl(data.url);
+      await navigator.clipboard.writeText(newBlob.url);
+      setCopiedUrl(newBlob.url);
       setTimeout(() => setCopiedUrl(null), 3000);
     } catch (error) {
       console.error('Upload error:', error);
@@ -95,7 +100,7 @@ export default function Home() {
     try {
       const res = await fetch('/api/delete-all', { method: 'DELETE' });
       if (res.ok) {
-        saveUploads([]);
+        setUploads([]);
       }
     } catch (error) {
       console.error('Delete error:', error);

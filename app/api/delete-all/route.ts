@@ -1,20 +1,17 @@
+import { list, del } from '@vercel/blob';
 import { NextResponse } from 'next/server';
-import { readdir, unlink } from 'fs/promises';
-import path from 'path';
 
 export async function DELETE() {
   try {
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+    const { blobs } = await list();
     
-    try {
-      const files = await readdir(uploadDir);
-      await Promise.all(
-        files.map(file => unlink(path.join(uploadDir, file)))
-      );
-      return NextResponse.json({ success: true, deleted: files.length });
-    } catch {
+    if (blobs.length === 0) {
       return NextResponse.json({ success: true, deleted: 0 });
     }
+
+    await Promise.all(blobs.map(blob => del(blob.url)));
+    
+    return NextResponse.json({ success: true, deleted: blobs.length });
   } catch (error) {
     console.error('Delete error:', error);
     return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
