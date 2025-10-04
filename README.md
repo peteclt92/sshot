@@ -1,4 +1,4 @@
-# SShot - Simple Screenshot Sharing
+# CloudClip - Instant Screenshot Sharing
 
 A minimalistic webapp for uploading screenshots and getting instant shareable links.
 
@@ -8,6 +8,7 @@ A minimalistic webapp for uploading screenshots and getting instant shareable li
 - 📋 Automatic clipboard copy on upload
 - 📜 Accordion history view
 - 🗑️ Delete all functionality
+- 🌓 Dark mode support (follows system preferences)
 - ✨ Delightful, modern UI with smooth animations
 - ☁️ Direct client uploads to Vercel Blob (bypasses 4.5MB function limit)
 
