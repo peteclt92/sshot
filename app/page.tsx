@@ -40,6 +40,7 @@ export default function Home() {
     }
 
     setIsUploading(true);
+    setCopiedUrl(null);
 
     try {
       const newBlob = await upload(file.name, file, {
@@ -57,10 +58,9 @@ export default function Home() {
       
       await navigator.clipboard.writeText(newBlob.url);
       setCopiedUrl(newBlob.url);
-      setTimeout(() => setCopiedUrl(null), 3000);
+      setTimeout(() => setCopiedUrl(null), 5000);
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Upload failed. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -166,10 +166,19 @@ export default function Home() {
       </div>
 
       {copiedUrl && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl animate-slide-up">
-          <p className="text-green-800 text-center font-medium">
-            ✓ Link copied to clipboard!
-          </p>
+        <div className="mb-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl animate-slide-up shadow-lg">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-green-800 text-xl font-bold">
+              Upload Successful!
+            </p>
+          </div>
+          <div className="bg-white rounded-lg p-3 border border-green-200">
+            <p className="text-green-700 text-sm font-medium mb-1 text-center">Link copied to clipboard:</p>
+            <p className="text-slate-600 text-xs break-all text-center font-mono">{copiedUrl}</p>
+          </div>
         </div>
       )}
 
