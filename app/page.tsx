@@ -14,7 +14,8 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
+  const [showCopyAnimation, setShowCopyAnimation] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -55,10 +56,19 @@ export default function Home() {
       };
 
       setUploads([newUpload, ...uploads]);
+      setExpandedIndex(0);
       
-      await navigator.clipboard.writeText(newBlob.url);
-      setCopiedUrl(newBlob.url);
-      setTimeout(() => setCopiedUrl(null), 5000);
+      try {
+        await navigator.clipboard.writeText(newBlob.url);
+        setCopiedUrl(newBlob.url);
+        setShowCopyAnimation(true);
+        setTimeout(() => {
+          setCopiedUrl(null);
+          setShowCopyAnimation(false);
+        }, 5000);
+      } catch (clipboardError) {
+        console.error('Clipboard error:', clipboardError);
+      }
     } catch (error) {
       console.error('Upload error:', error);
     } finally {
@@ -89,9 +99,38 @@ export default function Home() {
   };
 
   const copyToClipboard = async (url: string) => {
-    await navigator.clipboard.writeText(url);
-    setCopiedUrl(url);
-    setTimeout(() => setCopiedUrl(null), 2000);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedUrl(url);
+      setShowCopyAnimation(true);
+      setTimeout(() => {
+        setCopiedUrl(null);
+        setShowCopyAnimation(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Clipboard copy failed:', error);
+    }
+  };
+
+  const deleteUpload = async (url: string) => {
+    if (!confirm('Delete this screenshot?')) return;
+    
+    try {
+      const res = await fetch('/api/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      
+      if (res.ok) {
+        setUploads(uploads.filter(u => u.url !== url));
+        if (expandedIndex !== null && expandedIndex >= uploads.length - 1) {
+          setExpandedIndex(Math.max(0, uploads.length - 2));
+        }
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+    }
   };
 
   const deleteAll = async () => {
@@ -101,6 +140,7 @@ export default function Home() {
       const res = await fetch('/api/delete-all', { method: 'DELETE' });
       if (res.ok) {
         setUploads([]);
+        setExpandedIndex(null);
       }
     } catch (error) {
       console.error('Delete error:', error);
@@ -120,6 +160,19 @@ export default function Home() {
         </h1>
         <p className="text-slate-600 dark:text-slate-300">Upload screenshots, get instant links</p>
       </div>
+
+      {showCopyAnimation && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50 animate-fade-in">
+          <div className="bg-green-500 text-white px-8 py-6 rounded-2xl shadow-2xl transform scale-110 animate-pulse">
+            <div className="flex items-center gap-4">
+              <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-2xl font-bold">Copied to Clipboard!</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         onDrop={handleDrop}
@@ -227,23 +280,53 @@ export default function Home() {
 
                 {expandedIndex === index && (
                   <div className="px-6 pb-6 space-y-4 animate-slide-up">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(upload.url);
+                        }}
+                        className={`
+                          flex-1 px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2
+                          ${copiedUrl === upload.url
+                            ? 'bg-green-500 dark:bg-green-600 text-white'
+                            : 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white'
+                          }
+                        `}
+                      >
+                        {copiedUrl === upload.url ? (
+                          <>
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            Copy Link
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteUpload(upload.url);
+                        }}
+                        className="px-4 py-3 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-lg transition-colors flex items-center justify-center"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                     <img 
                       src={upload.url} 
                       alt={upload.filename}
-                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700"
+                      className="w-full max-w-md mx-auto rounded-lg border border-slate-200 dark:border-slate-700"
                     />
-                    <button
-                      onClick={() => copyToClipboard(upload.url)}
-                      className={`
-                        w-full px-4 py-3 rounded-lg font-medium transition-all
-                        ${copiedUrl === upload.url
-                          ? 'bg-green-500 dark:bg-green-600 text-white'
-                          : 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white'
-                        }
-                      `}
-                    >
-                      {copiedUrl === upload.url ? '✓ Copied!' : 'Copy Link'}
-                    </button>
                   </div>
                 )}
               </div>
